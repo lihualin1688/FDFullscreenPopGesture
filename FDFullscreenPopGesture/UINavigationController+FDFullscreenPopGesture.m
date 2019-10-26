@@ -126,6 +126,7 @@ int iosMinorVersion()
     }
     return version;
 }
+
 bool TGIsRTL()
 {
     static bool value = false;

@@ -38,6 +38,7 @@
 /// rather than a global way, checking "fd_prefersNavigationBarHidden" property.
 /// Default to YES, disable it if you don't want so.
 @property (nonatomic, assign) BOOL fd_viewControllerBasedNavigationBarAppearanceEnabled;
+@property (nonatomic, assign) BOOL eg_animatingControllerPush;
 
 @end
 
