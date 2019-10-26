@@ -66,6 +66,143 @@
     
     return YES;
 }
+int iosMajorVersion()
+{
+    static bool initialized = false;
+    static int version = 7;
+    if (!initialized)
+    {
+        switch ([[[UIDevice currentDevice] systemVersion] intValue])
+        {
+            case 4:
+                version = 4;
+                break;
+            case 5:
+                version = 5;
+                break;
+            case 6:
+                version = 6;
+                break;
+            case 7:
+                version = 7;
+                break;
+            case 8:
+                version = 8;
+                break;
+            case 9:
+                version = 9;
+                break;
+            case 10:
+                version = 10;
+                break;
+            case 11:
+                version = 11;
+                break;
+            case 12:
+                version = 12;
+                break;
+            default:
+                version = 9;
+                break;
+        }
+        
+        initialized = true;
+    }
+    return version;
+}
+
+int iosMinorVersion()
+{
+    static bool initialized = false;
+    static int version = 0;
+    if (!initialized)
+    {
+        NSString *versionString = [[UIDevice currentDevice] systemVersion];
+        NSRange range = [versionString rangeOfString:@"."];
+        if (range.location != NSNotFound)
+            version = [[versionString substringFromIndex:range.location + 1] intValue];
+        
+        initialized = true;
+    }
+    return version;
+}
+bool TGIsRTL()
+{
+    static bool value = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^
+    {
+        value = ([NSLocale characterDirectionForLanguage:[[NSLocale preferredLanguages] objectAtIndex:0]] == NSLocaleLanguageDirectionRightToLeft);
+    });
+    
+    if (!value && iosMajorVersion() >= 9)
+        value = [UIView appearance].semanticContentAttribute == UISemanticContentAttributeForceRightToLeft;
+    
+    return value;
+}
+
+- (bool)_gestureRecognizer:(UIPanGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
+{
+    printf("\nfile:%s \nline:%d \nfunc:%s",__FILE__,__LINE__,__FUNCTION__);
+    if (self.navigationController.eg_animatingControllerPush)
+        return false;
+    
+    CGPoint location = [gestureRecognizer locationInView:gestureRecognizer.view];
+    
+    if (self.navigationController.viewControllers.count == 1)
+        return false;
+    
+    bool (^isEdgePan)(void) = ^bool
+    {
+        if ((!TGIsRTL() && location.x < 44.0f) || (TGIsRTL() && location.x > gestureRecognizer.view.frame.size.width - 44.0f))
+        {
+            CGPoint velocity = [gestureRecognizer velocityInView:gestureRecognizer.view];
+            if (fabs(velocity.x) >= fabs(velocity.y))
+            {
+                otherGestureRecognizer.enabled = false;
+                otherGestureRecognizer.enabled = true;
+                return true;
+            }
+        }
+        return false;
+    };
+    
+    if (otherGestureRecognizer.view.tag == 0xdead)
+    {
+        return false;
+    }
+    else if ([otherGestureRecognizer.view isKindOfClass:[UIScrollView class]])
+    {
+        UIScrollView *scrollView = (UIScrollView *)otherGestureRecognizer.view;
+        bool viewIsHorizontalScrollView = !TGIsRTL() && scrollView.contentSize.height > FLT_EPSILON && scrollView.contentSize.width > scrollView.contentSize.height && fabs(scrollView.contentOffset.x + scrollView.contentInset.left) < FLT_EPSILON && scrollView.tag != 0xbeef;
+        bool viewIsDeceleratingScrollView = scrollView.contentSize.height > scrollView.contentSize.width && scrollView.isDecelerating;
+        if (viewIsHorizontalScrollView || viewIsDeceleratingScrollView)
+        {
+            if (viewIsHorizontalScrollView)
+            {
+                CGPoint velocity = [gestureRecognizer velocityInView:gestureRecognizer.view];
+                if ((!TGIsRTL() && velocity.x < FLT_EPSILON) || (TGIsRTL() && velocity.x > FLT_EPSILON))
+                    return false;
+                
+                otherGestureRecognizer.enabled = false;
+                otherGestureRecognizer.enabled = true;
+            }
+            return true;
+        }
+        else
+        {
+            if (isEdgePan())
+                return true;
+        }
+    }
+    else
+    {
+        if (isEdgePan())
+            return true;
+    }
+    return false;
+}
+
 
 @end
 
@@ -245,6 +382,14 @@ typedef void (^_FDViewControllerWillAppearInjectBlock)(UIViewController *viewCon
     objc_setAssociatedObject(self, key, @(enabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
+- (BOOL)eg_animatingControllerPush
+{
+    return [objc_getAssociatedObject(self, _cmd) boolValue];
+}
+- (void)setEg_animatingControllerPush:(BOOL)disabled
+{
+    objc_setAssociatedObject(self, @selector(eg_animatingControllerPush), @(disabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
 @end
 
 @implementation UIViewController (FDFullscreenPopGesture)
