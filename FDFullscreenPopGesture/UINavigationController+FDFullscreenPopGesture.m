@@ -144,7 +144,6 @@ bool TGIsRTL()
 
 - (bool)_gestureRecognizer:(UIPanGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
 {
-    printf("\nfile:%s \nline:%d \nfunc:%s",__FILE__,__LINE__,__FUNCTION__);
     if (self.navigationController.eg_animatingControllerPush)
         return false;
     
@@ -290,6 +289,11 @@ typedef void (^_FDViewControllerWillAppearInjectBlock)(UIViewController *viewCon
     });
 }
 
+- (void)navigationController:(UINavigationController *)navigationController didShowViewController:(UIViewController *)viewController animated:(BOOL)animated
+{
+    self.eg_animatingControllerPush = false;
+}
+
 - (void)fd_pushViewController:(UIViewController *)viewController animated:(BOOL)animated
 {
     if (![self.interactivePopGestureRecognizer.view.gestureRecognizers containsObject:self.fd_fullscreenPopGestureRecognizer]) {
@@ -314,6 +318,17 @@ typedef void (^_FDViewControllerWillAppearInjectBlock)(UIViewController *viewCon
     // Forward to primary implementation.
     if (![self.viewControllers containsObject:viewController]) {
         [self fd_pushViewController:viewController animated:animated];
+    }
+    
+    self.eg_animatingControllerPush = animated;
+    if (self.eg_animatingControllerPush) {
+        __weak typeof(self) weakSelf = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            if (strongSelf) {
+                strongSelf.eg_animatingControllerPush = false;
+            }
+        });
     }
 }
 
